@@ -665,10 +665,14 @@ static void mca_btl_smcuda_send_cuda_ipc_ack(struct mca_btl_base_module_t* btl,
         return;
     }
 
-    if (ready) {
-        ctrlhdr.ctag = IPC_ACK;
+    if (IPC_NACK == ready) {
+        ctrlhdr.ctag = IPC_NACK;
     } else {
-        ctrlhdr.ctag = IPC_NOTREADY;
+        if (ready) {
+            ctrlhdr.ctag = IPC_ACK;
+        } else {
+            ctrlhdr.ctag = IPC_NOTREADY;
+        }
     }
 
     /* Fill in fragment fields. */
@@ -796,9 +800,12 @@ static void btl_smcuda_control(mca_btl_base_module_t* btl,
 
             if (0 == ipcaccess) {
                 /* No CUDA IPC support */
+                smcuda_btl->error_cb(&smcuda_btl->super, MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC_NOT,
+                                     ep_proc, (char *)&mca_btl_smcuda_component.cuda_ipc_output);
                 opal_output_verbose(10, mca_btl_smcuda_component.cuda_ipc_output,
-                                    "Not sending CUDA IPC ACK, no P2P support");
+                                    "Sending CUDA IPC NACK, no P2P support");
                 endpoint->ipcstate = IPC_BAD;
+                mca_btl_smcuda_send_cuda_ipc_ack(btl, endpoint, IPC_NACK);
             } else {
                 /* CUDA IPC works */
                 smcuda_btl->error_cb(&smcuda_btl->super, MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC,
@@ -839,6 +846,17 @@ static void btl_smcuda_control(mca_btl_base_module_t* btl,
             endpoint->ipcstate = IPC_INIT;
         }
         OPAL_THREAD_UNLOCK(&endpoint->endpoint_lock);
+        break;
+
+    case IPC_NACK:
+        opal_output_verbose(10, mca_btl_smcuda_component.cuda_ipc_output,
+                            "Received CUDA IPC NACK, notifying PML: myrank=%d, peerrank=%d",
+                            endpoint->my_smp_rank, endpoint->peer_smp_rank);
+
+        smcuda_btl->error_cb(&smcuda_btl->super, MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC_NOT,
+                             ep_proc, (char *)&mca_btl_smcuda_component.cuda_ipc_output);
+        assert(endpoint->ipcstate == IPC_SENT);
+        endpoint->ipcstate = IPC_ACKED;
         break;
 
     default:

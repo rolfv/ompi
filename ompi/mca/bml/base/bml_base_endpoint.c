@@ -32,6 +32,10 @@ static void mca_bml_base_endpoint_construct(mca_bml_base_endpoint_t* ep)
     OBJ_CONSTRUCT(&ep->btl_eager, mca_bml_base_btl_array_t);
     OBJ_CONSTRUCT(&ep->btl_send,  mca_bml_base_btl_array_t);
     OBJ_CONSTRUCT(&ep->btl_rdma,  mca_bml_base_btl_array_t);
+#if OPAL_CUDA_SUPPORT
+    OBJ_CONSTRUCT(&ep->btl_cuda,  mca_bml_base_btl_array_t);
+    OBJ_CONSTRUCT(&ep->btl_cuda_save,  mca_bml_base_btl_array_t);
+#endif /* OPAL_CUDA_SUPPORT */
 }
 
 
@@ -40,6 +44,10 @@ static void mca_bml_base_endpoint_destruct(mca_bml_base_endpoint_t* ep)
     OBJ_DESTRUCT(&ep->btl_eager);
     OBJ_DESTRUCT(&ep->btl_send);
     OBJ_DESTRUCT(&ep->btl_rdma);
+#if OPAL_CUDA_SUPPORT
+    OBJ_DESTRUCT(&ep->btl_cuda);
+    OBJ_DESTRUCT(&ep->btl_cuda_save);
+#endif /* OPAL_CUDA_SUPPORT */
 }
 
 

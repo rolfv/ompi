@@ -760,7 +760,7 @@ void mca_pml_ob1_error_handler(
         struct mca_btl_base_module_t* btl, int32_t flags,
         opal_proc_t* errproc, char* btlinfo ) {
 #if OPAL_CUDA_SUPPORT
-    if (flags & MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC) {
+    if (flags & MCA_BTL_ERROR_FLAGS_ADD_CUDA) {
         mca_pml_ob1_cuda_add_ipc_support(btl, flags, (struct ompi_proc_t*)errproc, btlinfo);
         return;
     }

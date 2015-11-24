@@ -489,6 +489,7 @@ int mca_btl_smcuda_get_cuda (struct mca_btl_base_module_t *btl,
 enum ipcCtrlMsg {
     IPC_REQ = 10,
     IPC_ACK,
+    IPC_NACK,
     IPC_NOTREADY,
 };
 

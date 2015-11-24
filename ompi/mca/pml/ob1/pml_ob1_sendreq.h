@@ -467,7 +467,17 @@ mca_pml_ob1_send_request_start_seq (mca_pml_ob1_send_request_t* sendreq, mca_bml
         int rc;
 
         /* select a btl */
+#if !OPAL_CUDA_SUPPORT
         bml_btl = mca_bml_base_btl_array_get_next(&endpoint->btl_eager);
+#else
+        if ((sendreq->req_send.req_base.req_convertor.flags & CONVERTOR_CUDA) &&
+            (0 != mca_bml_base_btl_array_get_size(&endpoint->btl_cuda))) {
+            /* Use this BTL for all GPU transfers */
+            bml_btl = mca_bml_base_btl_array_get_next(&endpoint->btl_cuda);
+        } else {
+            bml_btl = mca_bml_base_btl_array_get_next(&endpoint->btl_eager);
+        }
+#endif /* OPAL_CUDA_SUPPORT */
         rc = mca_pml_ob1_send_request_start_btl(sendreq, bml_btl);
         if( OPAL_LIKELY(OMPI_ERR_OUT_OF_RESOURCE != rc) )
             return rc;

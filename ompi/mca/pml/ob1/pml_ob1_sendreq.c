@@ -848,11 +848,28 @@ void mca_pml_ob1_send_request_copy_in_out( mca_pml_ob1_send_request_t *sendreq,
     sr->range_send_length = send_length;
     sr->range_btl_idx = 0;
 
+#if !OPAL_CUDA_SUPPORT
     for(n = 0; n < num_btls && n < mca_pml_ob1.max_send_per_range; n++) {
         sr->range_btls[n].bml_btl =
             mca_bml_base_btl_array_get_next(&bml_endpoint->btl_send);
         weight_total += sr->range_btls[n].bml_btl->btl_weight;
     }
+#else
+    if (mca_bml_base_btl_array_get_size(&bml_endpoint->btl_cuda) > 0) {
+        num_btls = mca_bml_base_btl_array_get_size(&bml_endpoint->btl_cuda);
+        for(n = 0; n < num_btls && n < mca_pml_ob1.max_send_per_range; n++) {
+            sr->range_btls[n].bml_btl =
+                mca_bml_base_btl_array_get_next(&bml_endpoint->btl_cuda);
+            weight_total += sr->range_btls[n].bml_btl->btl_weight;
+        }
+    } else {
+        for(n = 0; n < num_btls && n < mca_pml_ob1.max_send_per_range; n++) {
+            sr->range_btls[n].bml_btl =
+                mca_bml_base_btl_array_get_next(&bml_endpoint->btl_send);
+            weight_total += sr->range_btls[n].bml_btl->btl_weight;
+        }
+    }
+#endif /* OPAL_CUDA_SUPPORT */
 
     sr->range_btl_cnt = n;
     mca_pml_ob1_calc_weighted_length(sr->range_btls, n, send_length,

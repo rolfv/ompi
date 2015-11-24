@@ -47,6 +47,9 @@
 char *opal_signal_string = NULL;
 char *opal_net_private_ipv4 = NULL;
 char *opal_set_max_sys_limits = NULL;
+#if OPAL_CUDA_SUPPORT
+bool opal_cuda_all_openib = false;
+#endif /* OPAL_CUDA_SUPPORT */
 
 #if OPAL_ENABLE_TIMING
 char *opal_timing_sync_file = NULL;
@@ -279,6 +282,17 @@ int opal_register_params(void)
                                  OPAL_INFO_LVL_9,
                                  MCA_BASE_VAR_SCOPE_READONLY,
                                  &opal_warn_on_fork);
+
+#if OPAL_CUDA_SUPPORT
+    ret = mca_base_var_register ("ompi", "mpi", NULL, "cuda_all_openib",
+                                 "Whether to use openib BTL for all GPU transfers",
+                                 MCA_BASE_VAR_TYPE_BOOL, NULL, 0, MCA_BASE_VAR_FLAG_SETTABLE,
+                                 OPAL_INFO_LVL_3, MCA_BASE_VAR_SCOPE_ALL_EQ,
+                                 &opal_cuda_all_openib);
+    if (0 > ret) {
+        return ret;
+    }
+#endif /* OPAL_CUDA_SUPPORT */
 
     /* The ddt engine has a few parameters */
     ret = opal_datatype_register_params();

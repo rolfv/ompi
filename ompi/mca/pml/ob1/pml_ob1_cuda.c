@@ -105,9 +105,15 @@ size_t mca_pml_ob1_rdma_cuda_btls(
     size_t size,
     mca_pml_ob1_com_btl_t* rdma_btls)
 {
-    int num_btls = mca_bml_base_btl_array_get_size(&bml_endpoint->btl_send);
+    int num_btls;
     double weight_total = 0;
     int num_btls_used = 0, n;
+    int use_btl_cuda = 0;
+
+    num_btls = use_btl_cuda = mca_bml_base_btl_array_get_size(&bml_endpoint->btl_cuda);
+    if (0 == num_btls) {
+        num_btls = mca_bml_base_btl_array_get_size(&bml_endpoint->btl_send);
+    }
 
     /* shortcut when there are no rdma capable btls */
     if(num_btls == 0) {
@@ -117,8 +123,16 @@ size_t mca_pml_ob1_rdma_cuda_btls(
     /* check to see if memory is registered */
     for(n = 0; n < num_btls && num_btls_used < mca_pml_ob1.max_rdma_per_request;
             n++) {
-        mca_bml_base_btl_t* bml_btl =
-            mca_bml_base_btl_array_get_index(&bml_endpoint->btl_send, n);
+        mca_bml_base_btl_t* bml_btl;
+        if (use_btl_cuda) {
+            bml_btl = mca_bml_base_btl_array_get_index(&bml_endpoint->btl_cuda, n);
+        } else {
+            bml_btl = mca_bml_base_btl_array_get_index(&bml_endpoint->btl_send, n);
+        }
+
+        OPAL_OUTPUT_VERBOSE((100, mca_pml_ob1_output,
+                             "Using %s (size=%d)for this transfer",
+                             bml_btl->btl->btl_component->btl_version.mca_component_name, size));
 
         if (bml_btl->btl_flags & MCA_BTL_FLAGS_CUDA_GET) {
             mca_btl_base_registration_handle_t *handle = NULL;
@@ -190,6 +204,7 @@ void mca_pml_ob1_cuda_add_ipc_support(struct mca_btl_base_module_t* btl, int32_t
                                       ompi_proc_t* errproc, char* btlinfo)
 {
     mca_bml_base_endpoint_t* ep;
+    struct mca_btl_base_endpoint_t *btl_endpoint;
     int btl_verbose_stream = 0;
     int i;
 
@@ -201,16 +216,41 @@ void mca_pml_ob1_cuda_add_ipc_support(struct mca_btl_base_module_t* btl, int32_t
     ep = (mca_bml_base_endpoint_t*)errproc->proc_endpoints[OMPI_PROC_ENDPOINT_TAG_BML];
 
     /* Find the corresponding bml and adjust the flag to support CUDA get */
-    for( i = 0; i < (int)ep->btl_send.arr_size; i++ ) {
-        if( ep->btl_send.bml_btls[i].btl == btl ) {
-            ep->btl_send.bml_btls[i].btl_flags |= MCA_BTL_FLAGS_CUDA_GET;
+     for( i = 0; i < (int)ep->btl_send.arr_size; i++ ) {
+         if( ep->btl_send.bml_btls[i].btl == btl ) {
+            btl_endpoint = ep->btl_send.bml_btls[i].btl_endpoint;
+            break;
+        }
+    }
+
+    if (flags & MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC) {
+        ep->btl_send.bml_btls[i].btl_flags |= MCA_BTL_FLAGS_CUDA_GET;
+        opal_output_verbose(5, btl_verbose_stream,
+                            "BTL %s: rank=%d enabling CUDA IPC "
+                            "to rank=%d on node=%s \n",
+                            btl->btl_component->btl_version.mca_component_name,
+                            OMPI_PROC_MY_NAME->vpid,
+                            ((ompi_process_name_t*)&errproc->super.proc_name)->vpid,
+                            errproc->super.proc_hostname);
+    } else if (flags & MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC_NOT) {
+        size_t numbtls;
+        mca_bml_base_btl_t* bml_btl_cuda;
+        mca_bml_base_btl_t* bml_btl_cuda_save;
+
+        numbtls = mca_bml_base_btl_array_get_size(&ep->btl_cuda_save);
+        opal_output_verbose(1,  btl_verbose_stream,
+                            "CUDA: Size of CUDA_SAVE is %d", (int)numbtls);
+        for(size_t i = 0; i < mca_bml_base_btl_array_get_size(&ep->btl_cuda_save); i++) {
+            bml_btl_cuda = mca_bml_base_btl_array_insert(&ep->btl_cuda);
+            bml_btl_cuda_save = mca_bml_base_btl_array_get_index(&ep->btl_cuda_save, i);
             opal_output_verbose(5, btl_verbose_stream,
-                        "BTL %s: rank=%d enabling CUDA IPC "
-                        "to rank=%d on node=%s \n",
-                        btl->btl_component->btl_version.mca_component_name,
-                        OMPI_PROC_MY_NAME->vpid,
-                        ((ompi_process_name_t*)&errproc->super.proc_name)->vpid,
-                        errproc->super.proc_hostname);
+                                "CUDA: Putting %s on btl_cuda group on ep=%p",
+                                bml_btl_cuda_save->btl->btl_component->btl_version.mca_component_name,
+                                (void *)ep);
+            bml_btl_cuda->btl = bml_btl_cuda_save->btl;
+            bml_btl_cuda->btl_endpoint = bml_btl_cuda_save->btl_endpoint;
+            bml_btl_cuda->btl_weight = 0;
+            bml_btl_cuda->btl_flags = bml_btl_cuda_save->btl_flags;
         }
     }
 }

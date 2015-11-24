@@ -39,6 +39,9 @@
 #include "ompi/mca/bml/base/base.h"
 #include "opal/mca/btl/btl.h"
 #include "opal/mca/btl/base/base.h"
+#if OPAL_CUDA_SUPPORT
+#include "opal/runtime/opal_params.h"
+#endif /* OPAL_CUDA_SUPPORT */
 #include "ompi/mca/bml/base/bml_base_btl.h"
 #include "bml_r2.h"
 #include "ompi/proc/proc.h"
@@ -158,6 +161,10 @@ static mca_bml_base_endpoint_t *mca_bml_r2_allocate_endpoint (ompi_proc_t *proc)
     mca_bml_base_btl_array_reserve(&bml_endpoint->btl_eager, mca_bml_r2.num_btl_modules);
     mca_bml_base_btl_array_reserve(&bml_endpoint->btl_send,  mca_bml_r2.num_btl_modules);
     mca_bml_base_btl_array_reserve(&bml_endpoint->btl_rdma,  mca_bml_r2.num_btl_modules);
+#if OPAL_CUDA_SUPPORT
+    mca_bml_base_btl_array_reserve(&bml_endpoint->btl_cuda,  mca_bml_r2.num_btl_modules);
+    mca_bml_base_btl_array_reserve(&bml_endpoint->btl_cuda_save,  mca_bml_r2.num_btl_modules);
+#endif /* OPAL_CUDA_SUPPORT */
     bml_endpoint->btl_max_send_size = -1;
     bml_endpoint->btl_proc = proc;
     proc->proc_endpoints[OMPI_PROC_ENDPOINT_TAG_BML] = bml_endpoint;
@@ -280,6 +287,17 @@ static int mca_bml_r2_endpoint_add_btl (struct ompi_proc_t *proc, mca_bml_base_e
         btl_in_use = true;
     }
 
+#if OPAL_CUDA_SUPPORT
+    /* Save away openib in special area so it can be used for all CUDA transfers if requested */
+    if ((!strcmp("openib", btl->btl_component->btl_version.mca_component_name)) && opal_cuda_all_openib) {
+        mca_bml_base_btl_t *bml_btl_cuda = mca_bml_base_btl_array_insert(&bml_endpoint->btl_cuda_save);
+        bml_btl_cuda->btl = btl;
+        bml_btl_cuda->btl_endpoint = btl_endpoint;
+        bml_btl_cuda->btl_weight = 0;
+        bml_btl_cuda->btl_flags = btl_flags;
+    }
+#endif /* OPAL_CUDA_SUPPORT */
+
     return btl_in_use ? OMPI_SUCCESS : OMPI_ERR_NOT_AVAILABLE;
 }
 
@@ -288,6 +306,20 @@ static void mca_bml_r2_compute_endpoint_metrics (mca_bml_base_endpoint_t *bml_en
     double total_bandwidth = 0;
     uint32_t latency;
     size_t n_send, n_rdma;
+
+#if OPAL_CUDA_SUPPORT
+    {
+        int numbtls = mca_bml_base_btl_array_get_size(&bml_endpoint->btl_cuda_save);
+        opal_output_verbose(1, opal_btl_base_framework.framework_output,
+                            "Size of CUDA is %d", (int)numbtls);
+        for(size_t i = 0; i < mca_bml_base_btl_array_get_size(&bml_endpoint->btl_cuda_save); i++) {
+            mca_bml_base_btl_t* bml_btl = mca_bml_base_btl_array_get_next(&bml_endpoint->btl_cuda_save);
+            opal_output_verbose(1, opal_btl_base_framework.framework_output,
+                                "CUDA: Iter=%d, btl=%s", (int)i,
+                                bml_btl->btl->btl_component->btl_version.mca_component_name);
+        }
+    }
+#endif /* OPAL_CUDA_SUPPORT */
 
     /* (1) determine the total bandwidth available across all btls
      *     note that we need to do this here, as we may already have btls configured

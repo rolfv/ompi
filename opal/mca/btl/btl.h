@@ -249,6 +249,8 @@ typedef uint8_t mca_btl_base_tag_t;
 #define MCA_BTL_ERROR_FLAGS_FATAL 0x1
 #define MCA_BTL_ERROR_FLAGS_NONFATAL 0x2
 #define MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC 0x4
+#define MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC_NOT 0x8
+#define MCA_BTL_ERROR_FLAGS_ADD_CUDA (MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC | MCA_BTL_ERROR_FLAGS_ADD_CUDA_IPC_NOT)
 
 /** registration flags. the access flags are a 1-1 mapping with the mpool
  * access flags. */

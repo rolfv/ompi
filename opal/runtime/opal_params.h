@@ -29,6 +29,9 @@
 extern char *opal_signal_string;
 extern char *opal_net_private_ipv4;
 extern char *opal_set_max_sys_limits;
+#if OPAL_CUDA_SUPPORT
+OPAL_DECLSPEC extern bool opal_cuda_all_openib;
+#endif /* OPAL_CUDA_SUPPORT */
 
 #if OPAL_ENABLE_TIMING
 extern char *opal_timing_sync_file;

@@ -226,6 +226,10 @@ struct mca_bml_base_endpoint_t {
     mca_bml_base_btl_array_t btl_eager;         /**< array of btls to use for first fragments */
     mca_bml_base_btl_array_t btl_send;          /**< array of btls to use for remaining fragments */
     mca_bml_base_btl_array_t btl_rdma;          /**< array of btls that support (prefer) rdma */
+#if OPAL_CUDA_SUPPORT
+    mca_bml_base_btl_array_t btl_cuda;          /**< array of btls that could do CUDA */
+    mca_bml_base_btl_array_t btl_cuda_save;     /**< array of btls that will do CUDA */
+#endif /* OPAL_CUDA_SUPPORT */
     size_t                   btl_rdma_index;    /**< index of last used BTL for RDMA */
     uint32_t                 btl_flags_or;      /**< the bitwise OR of the btl flags */
 };
